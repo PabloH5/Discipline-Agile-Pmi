@@ -1,7 +1,7 @@
 export default function Sidebar({ activeView, onNavigate, backlogCount }) {
   const items = [
     { id: 'projects', icon: '⬡', label: 'Proyectos' },
-    { id: 'backlog',  icon: '◧', label: 'Backlog', badge: backlogCount },
+    { id: 'backlog', icon: '◧', label: 'Backlog', badge: backlogCount },
     { id: 'chatbot', icon: '◈', label: 'Asistente PMO', soon: true },
   ];
 
@@ -33,7 +33,7 @@ export default function Sidebar({ activeView, onNavigate, backlogCount }) {
       </nav>
 
       <div className="sidebar-footer">
-        v0.1 · Taller 2
+        v0.1
       </div>
     </aside>
   );
