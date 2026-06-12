@@ -2,12 +2,12 @@
 // ⚠️  REEMPLAZAR con la URL base de tu instancia n8n
 //     Ejemplo: https://mi-workspace.app.n8n.cloud
 // ============================================================
-const N8N_BASE = 'https://TU-N8N-URL';
+const N8N_BASE = "https://TU-N8N-URL";
 
 export const ENDPOINTS = {
-  getProjects:    `${N8N_BASE}/webhook/projects-get`,
-  createProject:  `${N8N_BASE}/webhook/projects-create`,
-  getBacklog:     `${N8N_BASE}/webhook/backlog-get`,
+  getProjects: `https://n8n.kaicol.com/webhook/projects-get`,
+  createProject: `https://n8n.kaicol.com/webhook/projects-create`,
+  getBacklog: `https://n8n.kaicol.com/webhook/backlog-get`,
 };
 
 // Nota: los webhooks en n8n deben tener CORS habilitado
@@ -21,8 +21,8 @@ export async function fetchProjects() {
 
 export async function createProject(data) {
   const res = await fetch(ENDPOINTS.createProject, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} al crear proyecto`);
