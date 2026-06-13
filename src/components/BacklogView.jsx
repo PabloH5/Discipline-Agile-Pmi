@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { fetchBacklog } from '../api/endpoints';
-import { MOCK_BACKLOG, PRIORIDADES, AREAS, TIPOS_SOLICITUD } from '../data/mockData';
+import { fetchBacklog, updateBacklogStatus } from '../api/endpoints';
+import { MOCK_BACKLOG, PRIORIDADES, AREAS, TIPOS_SOLICITUD, ESTADOS_SOLICITUD } from '../data/mockData';
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -13,14 +13,22 @@ function badgeClass(priority) {
   return map[priority] || 'baja';
 }
 
-export default function BacklogView({ onCountChange }) {
-  const [items, setItems]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [usingMock, setUsingMock] = useState(false);
+function statusClass(estado) {
+  const map = { 'Nuevo': 'nuevo', 'En curso': 'en-curso', 'Solucionado': 'solucionado' };
+  return map[estado] || 'nuevo';
+}
 
-  const [filterPrio, setFilterPrio] = useState('Todas');
-  const [filterArea, setFilterArea] = useState('Todas');
-  const [filterTipo, setFilterTipo] = useState('Todos');
+export default function BacklogView({ onCountChange }) {
+  const [items, setItems]         = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [usingMock, setUsingMock] = useState(false);
+  const [savingRow, setSavingRow] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+
+  const [filterPrio,   setFilterPrio]   = useState('Todas');
+  const [filterArea,   setFilterArea]   = useState('Todas');
+  const [filterTipo,   setFilterTipo]   = useState('Todos');
+  const [filterEstado, setFilterEstado] = useState('Todos');
 
   useEffect(() => {
     let cancelled = false;
@@ -30,8 +38,13 @@ export default function BacklogView({ onCountChange }) {
       .then(data => {
         if (!cancelled) {
           const list = Array.isArray(data) ? data : MOCK_BACKLOG;
-          setItems(list);
-          onCountChange?.(list.length);
+          // Asegura que todos los items tengan estado_solicitud
+          const normalized = list.map(i => ({
+            ...i,
+            estado_solicitud: i.estado_solicitud || 'Nuevo',
+          }));
+          setItems(normalized);
+          onCountChange?.(normalized.length);
           setUsingMock(false);
         }
       })
@@ -47,10 +60,34 @@ export default function BacklogView({ onCountChange }) {
     return () => { cancelled = true; };
   }, []);
 
+  async function handleStatusChange(rowNumber, newStatus, index) {
+    const previous = items[index].estado_solicitud;
+
+    // Actualización optimista
+    setItems(prev => prev.map((item, i) =>
+      i === index ? { ...item, estado_solicitud: newStatus } : item
+    ));
+    setSaveError(null);
+    setSavingRow(rowNumber);
+
+    try {
+      await updateBacklogStatus(rowNumber, newStatus);
+    } catch (err) {
+      // Revertir si falla
+      setItems(prev => prev.map((item, i) =>
+        i === index ? { ...item, estado_solicitud: previous } : item
+      ));
+      setSaveError(`Error al guardar estado (fila ${rowNumber})`);
+    } finally {
+      setSavingRow(null);
+    }
+  }
+
   const filtered = items.filter(i => {
-    if (filterPrio !== 'Todas' && i.prioridad_real !== filterPrio) return false;
-    if (filterArea !== 'Todas' && i.area_responsable !== filterArea) return false;
-    if (filterTipo !== 'Todos' && i.tipo_solicitud !== filterTipo) return false;
+    if (filterPrio   !== 'Todas' && i.prioridad_real    !== filterPrio)   return false;
+    if (filterArea   !== 'Todas' && i.area_responsable  !== filterArea)   return false;
+    if (filterTipo   !== 'Todos' && i.tipo_solicitud    !== filterTipo)   return false;
+    if (filterEstado !== 'Todos' && i.estado_solicitud  !== filterEstado) return false;
     return true;
   });
 
@@ -64,6 +101,14 @@ export default function BacklogView({ onCountChange }) {
             {usingMock && ' · Datos de demostración'}
           </p>
         </div>
+        <a
+          className="btn btn-primary"
+          href="https://n8n.kaicol.com/form/6611df75-6731-4482-add3-b99c0f8d09d6"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          + Nueva solicitud
+        </a>
       </div>
 
       {usingMock && (
@@ -72,35 +117,34 @@ export default function BacklogView({ onCountChange }) {
         </div>
       )}
 
+      {saveError && (
+        <div className="error-banner">⚠ {saveError}</div>
+      )}
+
       <div className="filter-row">
-        <select
-          className="filter-select"
-          value={filterPrio}
-          onChange={e => setFilterPrio(e.target.value)}
-        >
+        <select className="filter-select" value={filterEstado} onChange={e => setFilterEstado(e.target.value)}>
+          <option value="Todos">Estado: Todos</option>
+          {ESTADOS_SOLICITUD.map(e => <option key={e} value={e}>{e}</option>)}
+        </select>
+
+        <select className="filter-select" value={filterPrio} onChange={e => setFilterPrio(e.target.value)}>
           <option value="Todas">Prioridad: Todas</option>
           {PRIORIDADES.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
 
-        <select
-          className="filter-select"
-          value={filterArea}
-          onChange={e => setFilterArea(e.target.value)}
-        >
+        <select className="filter-select" value={filterArea} onChange={e => setFilterArea(e.target.value)}>
           <option value="Todas">Área: Todas</option>
           {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
 
-        <select
-          className="filter-select"
-          value={filterTipo}
-          onChange={e => setFilterTipo(e.target.value)}
-        >
+        <select className="filter-select" value={filterTipo} onChange={e => setFilterTipo(e.target.value)}>
           <option value="Todos">Tipo: Todos</option>
           {TIPOS_SOLICITUD.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
 
-        <span className="filter-count">{filtered.length} solicitud{filtered.length !== 1 ? 'es' : ''}</span>
+        <span className="filter-count">
+          {filtered.length} solicitud{filtered.length !== 1 ? 'es' : ''}
+        </span>
       </div>
 
       {loading ? (
@@ -112,13 +156,14 @@ export default function BacklogView({ onCountChange }) {
         <div className="state-box">
           <span className="state-icon">◧</span>
           <span className="state-title">Sin resultados</span>
-          <span className="state-desc">No hay solicitudes que coincidan con los filtros seleccionados.</span>
+          <span className="state-desc">No hay solicitudes que coincidan con los filtros.</span>
         </div>
       ) : (
         <div className="table-wrapper">
           <table className="data-table">
             <thead>
               <tr>
+                <th>Estado</th>
                 <th>Fecha</th>
                 <th>Resumen</th>
                 <th>Tipo</th>
@@ -128,34 +173,51 @@ export default function BacklogView({ onCountChange }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item, i) => (
-                <tr key={i}>
-                  <td className="td-date">{formatDate(item.fecha_solicitud)}</td>
-                  <td className="td-main">{item.resumen_linea}</td>
-                  <td>
-                    <span style={{
-                      fontSize: '12px',
-                      color: 'var(--text-secondary)',
-                      background: 'var(--surface-2)',
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      border: '1px solid var(--border)',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {item.tipo_solicitud}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge badge-${badgeClass(item.prioridad_real)}`}>
-                      {item.prioridad_real}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: '13px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
-                    {item.area_responsable}
-                  </td>
-                  <td className="td-justify">{item.justificacion_prioridad}</td>
-                </tr>
-              ))}
+              {filtered.map((item, i) => {
+                const globalIndex = items.indexOf(item);
+                const isSaving = savingRow === item.row_number;
+                return (
+                  <tr key={item.row_number || i}>
+                    <td>
+                      <select
+                        className={`status-select status-${statusClass(item.estado_solicitud)}`}
+                        value={item.estado_solicitud || 'Nuevo'}
+                        onChange={e => handleStatusChange(item.row_number, e.target.value, globalIndex)}
+                        disabled={isSaving}
+                        title={isSaving ? 'Guardando…' : 'Cambiar estado'}
+                      >
+                        {ESTADOS_SOLICITUD.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="td-date">{formatDate(item.fecha_solicitud)}</td>
+                    <td className="td-main">{item.resumen_linea}</td>
+                    <td>
+                      <span style={{
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                        background: 'var(--surface-2)',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {item.tipo_solicitud}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${badgeClass(item.prioridad_real)}`}>
+                        {item.prioridad_real}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '13px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                      {item.area_responsable}
+                    </td>
+                    <td className="td-justify">{item.justificacion_prioridad}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

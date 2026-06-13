@@ -8,10 +8,9 @@ export const ENDPOINTS = {
   getProjects: `https://n8n.kaicol.com/webhook/projects-get`,
   createProject: `https://n8n.kaicol.com/webhook/projects-create`,
   getBacklog: `https://n8n.kaicol.com/webhook/backlog-get`,
+  updateBacklogStatus: `https://n8n.kaicol.com/webhook/backlog-update-status`,
 };
 
-// Nota: los webhooks en n8n deben tener CORS habilitado
-// para el dominio de GitHub Pages: https://TU-USUARIO.github.io
 
 export async function fetchProjects() {
   const res = await fetch(ENDPOINTS.getProjects);
@@ -32,5 +31,16 @@ export async function createProject(data) {
 export async function fetchBacklog() {
   const res = await fetch(ENDPOINTS.getBacklog);
   if (!res.ok) throw new Error(`HTTP ${res.status} al obtener backlog`);
+  return res.json();
+}
+
+
+export async function updateBacklogStatus(rowNumber, estadoSolicitud) {
+  const res = await fetch(ENDPOINTS.updateBacklogStatus, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ row_number: rowNumber, estado_solicitud: estadoSolicitud }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

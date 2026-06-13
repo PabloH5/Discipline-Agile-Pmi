@@ -815,3 +815,36 @@ body {
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
+/* ===== STATUS SELECT (Backlog Kanban) ===== */
+.status-select {
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.status-select:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.status-select.status-nuevo {
+  background: #F3F4F6;
+  color: #4B5563;
+}
+
+.status-select.status-en-curso {
+  background: var(--en-curso-bg);
+  color: var(--en-curso);
+}
+
+.status-select.status-solucionado {
+  background: var(--completado-bg);
+  color: var(--completado);
+}
